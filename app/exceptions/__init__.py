@@ -1,0 +1,47 @@
+"""EduCore AI Platform — Exceptions Package"""
+
+from app.exceptions.errors import (
+    AccountDeactivatedException,
+    BadRequestException,
+    ClassCapacityExceededException,
+    ConflictException,
+    DuplicateAttendanceException,
+    DuplicateEmailException,
+    DuplicateEnrollmentException,
+    EduCoreException,
+    ForbiddenException,
+    InactiveTeacherException,
+    InsufficientPermissionsException,
+    InvalidCredentialsException,
+    InvalidGradeException,
+    InvalidTokenException,
+    NotFoundException,
+    SchoolAccessDeniedException,
+    TokenExpiredException,
+    UnauthorizedException,
+    ValidationException,
+)
+from app.exceptions.handlers import register_exception_handlers
+
+__all__ = [
+    "EduCoreException",
+    "BadRequestException",
+    "UnauthorizedException",
+    "InvalidCredentialsException",
+    "TokenExpiredException",
+    "InvalidTokenException",
+    "ForbiddenException",
+    "InsufficientPermissionsException",
+    "SchoolAccessDeniedException",
+    "NotFoundException",
+    "ConflictException",
+    "DuplicateEmailException",
+    "DuplicateEnrollmentException",
+    "DuplicateAttendanceException",
+    "ValidationException",
+    "ClassCapacityExceededException",
+    "InvalidGradeException",
+    "AccountDeactivatedException",
+    "InactiveTeacherException",
+    "register_exception_handlers",
+]
