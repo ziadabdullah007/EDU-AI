@@ -1,4 +1,9 @@
-"""EduCore AI Platform — Teacher Repository"""
+"""
+EduCore AI Platform — Teacher Repository
+
+Handles all database operations for Teacher records.
+No business logic. Only queries and persistence.
+"""
 
 from uuid import UUID
 
@@ -27,39 +32,63 @@ class TeacherRepository(BaseRepository[Teacher]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_by_user_id(self, user_id: UUID) -> Teacher | None:
-        """Find a teacher by their linked user account ID."""
-        stmt = select(Teacher).where(
-            and_(Teacher.user_id == user_id, Teacher.deleted_at.is_(None))
-        )
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+    async def employee_number_exists(
+        self,
+        employee_number: str,
+        school_id: UUID,
+        exclude_id: UUID | None = None,
+    ) -> bool:
+        """
+        Check if an employee number is already taken within a school.
 
-    async def get_by_employee_number(
-        self, employee_number: str, school_id: UUID
-    ) -> Teacher | None:
-        """Find a teacher by employee number within a school."""
-        stmt = select(Teacher).where(
+        Args:
+            employee_number: The employee number to check.
+            school_id: The school to scope the check.
+            exclude_id: Optional teacher ID to exclude (for updates).
+
+        Returns:
+            True if the number is already in use.
+        """
+        stmt = select(Teacher.id).where(
             and_(
                 Teacher.employee_number == employee_number,
                 Teacher.school_id == school_id,
                 Teacher.deleted_at.is_(None),
             )
         )
+        if exclude_id is not None:
+            stmt = stmt.where(Teacher.id != exclude_id)
+
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return result.scalar_one_or_none() is not None
 
     async def list_teachers(
         self,
         school_id: UUID,
         search: str | None = None,
         is_active: bool | None = None,
+        specialization: str | None = None,
         offset: int = 0,
         limit: int = 20,
         sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> tuple[list[Teacher], int]:
-        """List teachers within a school with search and pagination."""
+        """
+        List teachers within a school with search, filters, and pagination.
+
+        Args:
+            school_id: The school UUID for isolation.
+            search: Optional text search on name or employee number.
+            is_active: Optional active status filter.
+            specialization: Optional specialization filter.
+            offset: Pagination offset.
+            limit: Maximum records to return.
+            sort_by: Column to sort by.
+            sort_order: 'asc' or 'desc'.
+
+        Returns:
+            Tuple of (teachers list, total count).
+        """
         stmt = select(Teacher).where(
             and_(Teacher.school_id == school_id, Teacher.deleted_at.is_(None))
         )
@@ -70,12 +99,14 @@ class TeacherRepository(BaseRepository[Teacher]):
                     Teacher.first_name.ilike(f"%{search}%"),
                     Teacher.last_name.ilike(f"%{search}%"),
                     Teacher.employee_number.ilike(f"%{search}%"),
-                    Teacher.specialization.ilike(f"%{search}%"),
                 )
             )
 
         if is_active is not None:
             stmt = stmt.where(Teacher.is_active == is_active)
+
+        if specialization is not None:
+            stmt = stmt.where(Teacher.specialization.ilike(f"%{specialization}%"))
 
         total = await self.count(stmt)
 

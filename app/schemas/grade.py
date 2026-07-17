@@ -1,8 +1,13 @@
-"""EduCore AI Platform — Grade Schemas"""
+"""
+EduCore AI Platform — Grade Schemas
+
+Request and response schemas for grade management.
+Field names aligned to Grade ORM model (uses max_score not maximum_score).
+"""
 
 from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import Field, model_validator
 
 from app.models.grade import AssessmentType
 from app.schemas.base import BaseSchema, TimestampSchema, UUIDSchema
@@ -21,12 +26,12 @@ class AddGradeRequest(BaseSchema):
     term: str | None = Field(default=None, max_length=50)
     notes: str | None = Field(default=None, max_length=1000)
 
-    @field_validator("score")
-    @classmethod
-    def validate_score_le_max(cls, v: float, info: object) -> float:
-        """Validate score does not exceed max_score at the schema level."""
-        # Note: max_score check is also enforced at DB level via CHECK constraint
-        return v
+    @model_validator(mode="after")
+    def validate_score_le_max(self) -> "AddGradeRequest":
+        """Validate that score does not exceed max_score at the schema level."""
+        if self.score > self.max_score:
+            raise ValueError(f"score ({self.score}) cannot exceed max_score ({self.max_score})")
+        return self
 
 
 class UpdateGradeRequest(BaseSchema):
@@ -36,6 +41,14 @@ class UpdateGradeRequest(BaseSchema):
     max_score: float | None = Field(default=None, gt=0)
     notes: str | None = Field(default=None, max_length=1000)
     term: str | None = Field(default=None, max_length=50)
+
+    @model_validator(mode="after")
+    def validate_score_le_max(self) -> "UpdateGradeRequest":
+        """If both score and max_score provided, validate score <= max_score."""
+        if self.score is not None and self.max_score is not None:
+            if self.score > self.max_score:
+                raise ValueError(f"score ({self.score}) cannot exceed max_score ({self.max_score})")
+        return self
 
 
 class GradeResponse(UUIDSchema, TimestampSchema):
@@ -56,12 +69,10 @@ class GradeResponse(UUIDSchema, TimestampSchema):
 
 
 class GradeStatisticsResponse(BaseSchema):
-    """Aggregate statistics for a set of grade records."""
+    """Aggregate grade statistics for a student."""
 
-    subject: str | None
-    total_assessments: int
-    average_score: float
-    average_percentage: float
-    highest_score: float
-    lowest_score: float
-    pass_rate: float = Field(description="Percentage of grades >= 50%")
+    student_id: UUID
+    avg_score: float
+    max_score: float
+    min_score: float
+    total_grades: int

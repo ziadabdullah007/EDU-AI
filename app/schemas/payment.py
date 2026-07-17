@@ -1,4 +1,9 @@
-"""EduCore AI Platform — Payment Schemas"""
+"""
+EduCore AI Platform — Payment Schemas
+
+Request and response schemas for payment management.
+Field names aligned to Payment ORM model exactly.
+"""
 
 from datetime import datetime
 from uuid import UUID
@@ -48,11 +53,15 @@ class PaymentResponse(UUIDSchema, TimestampSchema):
     notes: str | None
 
 
-class StudentBalanceResponse(BaseSchema):
-    """Summarizes a student's financial standing."""
+class StudentBalanceSummary(BaseSchema):
+    """
+    Summarizes a student's financial standing.
+
+    Used by the PaymentService to return aggregated totals.
+    """
 
     student_id: UUID
     total_charged: float
     total_paid: float
     total_pending: float
-    currency: str
+    currency: str = "EGP"

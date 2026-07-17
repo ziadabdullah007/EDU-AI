@@ -1,4 +1,8 @@
-"""EduCore AI Platform — Attendance Schemas"""
+"""
+EduCore AI Platform — Attendance Schemas
+
+Request and response schemas for attendance tracking.
+"""
 
 from datetime import date
 from uuid import UUID
@@ -7,6 +11,14 @@ from pydantic import Field
 
 from app.models.attendance import AttendanceStatus
 from app.schemas.base import BaseSchema, TimestampSchema, UUIDSchema
+
+
+class AttendanceEntryRecord(BaseSchema):
+    """A single attendance entry for bulk marking."""
+
+    student_id: UUID
+    status: AttendanceStatus
+    notes: str | None = Field(default=None, max_length=500)
 
 
 class MarkAttendanceRequest(BaseSchema):
@@ -24,8 +36,8 @@ class BulkMarkAttendanceRequest(BaseSchema):
 
     class_id: UUID = Field(description="Class session")
     date: date = Field(description="Attendance date (YYYY-MM-DD)")
-    records: list[dict] = Field(
-        description="List of {student_id, status, notes} objects",
+    records: list[AttendanceEntryRecord] = Field(
+        description="List of student attendance entries",
         min_length=1,
     )
 
@@ -42,7 +54,6 @@ class AttendanceResponse(UUIDSchema, TimestampSchema):
 
     student_id: UUID
     class_id: UUID
-    school_id: UUID
     recorded_by: UUID
     date: date
     status: AttendanceStatus
@@ -50,11 +61,12 @@ class AttendanceResponse(UUIDSchema, TimestampSchema):
 
 
 class AttendanceSummaryResponse(BaseSchema):
-    """Attendance statistics for a student or class."""
+    """Attendance statistics for a student within a date range."""
 
+    student_id: UUID
     total_days: int
-    present_days: int
-    absent_days: int
-    late_days: int
-    excused_days: int
-    attendance_rate: float = Field(description="Percentage of present days")
+    present: int
+    absent: int
+    late: int
+    excused: int
+    attendance_rate: float = Field(description="Percentage of present days (0-100)")

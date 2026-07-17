@@ -6,6 +6,7 @@ Repositories are the ONLY layer allowed to interact with SQLAlchemy.
 Business logic MUST NOT appear here.
 """
 
+from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar
 from uuid import UUID
 
@@ -33,7 +34,7 @@ class BaseRepository(Generic[ModelType]):
         self.model = model
         self.session = session
 
-    async def get_by_id(self, record_id: UUID) -> ModelType | None:
+    async def get(self, record_id: UUID) -> ModelType | None:
         """
         Retrieve a single record by primary key.
 
@@ -60,31 +61,62 @@ class BaseRepository(Generic[ModelType]):
         await self.session.refresh(instance)
         return instance
 
-    async def update(self, instance: ModelType, data: dict[str, Any]) -> ModelType:
+    async def update(self, record_id: UUID, data: dict[str, Any]) -> ModelType:
         """
-        Update a model instance's fields and flush to the database.
+        Update a record by its primary key.
+
+        Fetches the record, applies the field updates, then flushes.
+        Only non-None values in `data` are applied.
 
         Args:
-            instance: The existing model instance to update.
+            record_id: The UUID of the record to update.
             data: Dictionary of field names to new values.
 
         Returns:
             The updated instance.
+
+        Raises:
+            ValueError: If the record does not exist.
         """
+        instance = await self.session.get(self.model, record_id)
+        if instance is None:
+            raise ValueError(f"{self.model.__name__} with id={record_id} not found.")
+
         for field, value in data.items():
-            if value is not None and hasattr(instance, field):
+            if hasattr(instance, field):
                 setattr(instance, field, value)
+
         await self.session.flush()
         await self.session.refresh(instance)
         return instance
 
-    async def delete(self, instance: ModelType) -> None:
+    async def soft_delete(self, record_id: UUID) -> None:
         """
-        Hard-delete a model instance from the database.
+        Mark a record as deleted by setting its deleted_at timestamp.
 
-        Note: For business entities, prefer soft-delete via the
-        dedicated repository methods. Only use this for technical
-        records (e.g., expired tokens).
+        This is the preferred deletion method for all business entities.
+        The record remains in the database for audit and history purposes.
+
+        Args:
+            record_id: The UUID of the record to soft-delete.
+
+        Raises:
+            ValueError: If the record does not exist or lacks a deleted_at column.
+        """
+        instance = await self.session.get(self.model, record_id)
+        if instance is None:
+            raise ValueError(f"{self.model.__name__} with id={record_id} not found.")
+        if not hasattr(instance, "deleted_at"):
+            raise ValueError(f"{self.model.__name__} does not support soft delete.")
+        instance.deleted_at = datetime.now(UTC)  # type: ignore[assignment]
+        await self.session.flush()
+
+    async def hard_delete(self, instance: ModelType) -> None:
+        """
+        Permanently remove a record from the database.
+
+        Note: For business entities, prefer soft_delete(). Use this ONLY for
+        technical records such as expired tokens.
 
         Args:
             instance: The model instance to delete.
@@ -94,10 +126,10 @@ class BaseRepository(Generic[ModelType]):
 
     async def count(self, stmt: Select) -> int:  # type: ignore[type-arg]
         """
-        Execute a count query.
+        Execute a count query derived from a SELECT statement.
 
         Args:
-            stmt: A SQLAlchemy select statement.
+            stmt: A SQLAlchemy select statement to count rows from.
 
         Returns:
             Total count of matching records.
@@ -108,7 +140,7 @@ class BaseRepository(Generic[ModelType]):
 
     async def execute_query(self, stmt: Select) -> list[ModelType]:  # type: ignore[type-arg]
         """
-        Execute a select statement and return all results.
+        Execute a select statement and return all results as a list.
 
         Args:
             stmt: A SQLAlchemy select statement.

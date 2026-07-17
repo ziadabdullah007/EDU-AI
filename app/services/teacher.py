@@ -2,10 +2,10 @@
 EduCore AI Platform — Teacher Service
 
 Business Rules:
-- Teacher belongs to one school.
-- Teacher may teach multiple classes.
-- Inactive teachers cannot receive new classes.
+- Teacher belongs to one school via user_id.
 - Employee number must be unique within a school.
+- Inactive teachers cannot receive new classes.
+- Deletion is soft delete only.
 """
 
 from uuid import UUID
@@ -39,7 +39,13 @@ class TeacherService:
     async def create_teacher(
         self, school_id: UUID, payload: TeacherCreateRequest, requesting_user: User
     ) -> TeacherResponse:
-        """Create a new teacher profile within a school."""
+        """
+        Create a new teacher profile linked to an existing User account.
+
+        Business Rules:
+        - employee_number must be unique within the school.
+        - user_id must reference an existing, active User.
+        """
         self._assert_school_access(school_id, requesting_user)
 
         if await self._teacher_repo.employee_number_exists(payload.employee_number, school_id):
@@ -47,10 +53,9 @@ class TeacherService:
                 f"Employee number '{payload.employee_number}' already exists in this school."
             )
 
-        if payload.user_id is not None:
-            user = await self._user_repo.get(payload.user_id)
-            if user is None:
-                raise NotFoundException(f"User '{payload.user_id}' not found.")
+        user = await self._user_repo.get(payload.user_id)
+        if user is None:
+            raise NotFoundException(f"User '{payload.user_id}' not found.")
 
         teacher = Teacher(
             school_id=school_id,
@@ -60,7 +65,7 @@ class TeacherService:
             employee_number=payload.employee_number,
             specialization=payload.specialization,
             phone=payload.phone,
-            email=payload.email,
+            bio=payload.bio,
         )
         created = await self._teacher_repo.create(teacher)
         logger.info("teacher_created", teacher_id=str(created.id), school_id=str(school_id))

@@ -3,6 +3,7 @@ EduCore AI Platform — Student Service
 
 Business Rules:
 - Student number must be unique within a school.
+- student.user_id links to an existing User account.
 - Student belongs to exactly one school.
 - Deletion is soft delete only.
 """
@@ -38,7 +39,25 @@ class StudentService:
     async def create_student(
         self, school_id: UUID, payload: StudentCreateRequest, requesting_user: User
     ) -> StudentResponse:
-        """Create a new student profile within a school."""
+        """
+        Create a new student profile linked to an existing User account.
+
+        Business Rules:
+        - student_number must be unique within the school.
+        - user_id must reference an existing, active User.
+
+        Args:
+            school_id: The school UUID.
+            payload: Validated create request.
+            requesting_user: The authenticated school admin.
+
+        Returns:
+            StudentResponse for the created student.
+
+        Raises:
+            ConflictException: If student_number is already taken.
+            NotFoundException: If the linked User does not exist.
+        """
         self._assert_school_access(school_id, requesting_user)
 
         if await self._student_repo.student_number_exists(payload.student_number, school_id):
@@ -46,10 +65,9 @@ class StudentService:
                 f"Student number '{payload.student_number}' already exists in this school."
             )
 
-        if payload.user_id is not None:
-            user = await self._user_repo.get(payload.user_id)
-            if user is None:
-                raise NotFoundException(f"User '{payload.user_id}' not found.")
+        user = await self._user_repo.get(payload.user_id)
+        if user is None:
+            raise NotFoundException(f"User '{payload.user_id}' not found.")
 
         student = Student(
             school_id=school_id,
@@ -60,10 +78,8 @@ class StudentService:
             date_of_birth=payload.date_of_birth,
             gender=payload.gender,
             phone=payload.phone,
-            email=payload.email,
+            parent_phone=payload.parent_phone,
             address=payload.address,
-            guardian_name=payload.guardian_name,
-            guardian_phone=payload.guardian_phone,
         )
         created = await self._student_repo.create(student)
         logger.info("student_created", student_id=str(created.id), school_id=str(school_id))

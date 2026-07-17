@@ -1,4 +1,9 @@
-"""EduCore AI Platform — School Repository"""
+"""
+EduCore AI Platform — School Repository
+
+Handles all database operations for School records.
+No business logic. Only queries and persistence.
+"""
 
 from uuid import UUID
 
@@ -15,10 +20,21 @@ class SchoolRepository(BaseRepository[School]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(School, session)
 
-    async def get_active_by_id(self, school_id: UUID) -> School | None:
-        """Return an active school by its ID."""
+    async def get_by_name(self, name: str) -> School | None:
+        """
+        Find a school by its exact name (case-insensitive).
+
+        Args:
+            name: The school name to look up.
+
+        Returns:
+            The School or None.
+        """
         stmt = select(School).where(
-            and_(School.id == school_id, School.deleted_at.is_(None))
+            and_(
+                School.name.ilike(name),
+                School.deleted_at.is_(None),
+            )
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -33,20 +49,23 @@ class SchoolRepository(BaseRepository[School]):
         sort_order: str = "desc",
     ) -> tuple[list[School], int]:
         """
-        List schools with optional filtering, search, and pagination.
+        List all schools with optional filters and pagination.
+
+        Args:
+            search: Optional text search on school name.
+            is_active: Optional filter for active/inactive schools.
+            offset: Pagination offset.
+            limit: Maximum records to return.
+            sort_by: Column name to sort by.
+            sort_order: 'asc' or 'desc'.
 
         Returns:
-            Tuple of (schools, total_count).
+            Tuple of (schools list, total count).
         """
         stmt = select(School).where(School.deleted_at.is_(None))
 
         if search:
-            stmt = stmt.where(
-                or_(
-                    School.name.ilike(f"%{search}%"),
-                    School.email.ilike(f"%{search}%"),
-                )
-            )
+            stmt = stmt.where(School.name.ilike(f"%{search}%"))
 
         if is_active is not None:
             stmt = stmt.where(School.is_active == is_active)

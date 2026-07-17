@@ -1,28 +1,38 @@
-"""EduCore AI Platform — Teacher Schemas"""
+"""
+EduCore AI Platform — Teacher Schemas
+
+Request and response schemas for teacher management endpoints.
+Aligned to the Teacher ORM model columns exactly.
+"""
 
 from uuid import UUID
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import Field, field_validator
 
 from app.schemas.base import BaseSchema, TimestampSchema, UUIDSchema
 from app.utils.validators import validate_employee_number, validate_phone_number
 
 
 class TeacherCreateRequest(BaseSchema):
-    """Request to create a new teacher profile."""
+    """
+    Request to create a new teacher profile.
 
-    email: EmailStr = Field(description="Teacher's email (creates a User account)")
-    password: str = Field(min_length=8, max_length=128, description="Initial password")
-    employee_number: str = Field(description="School-assigned employee ID")
+    The teacher must be linked to an existing User account (user_id).
+    employee_number must be unique within the school.
+    """
+
+    user_id: UUID = Field(description="Existing User account ID to link to this teacher")
+    employee_number: str = Field(description="School-assigned employee ID (unique per school)")
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
-    phone: str | None = Field(default=None)
     specialization: str | None = Field(default=None, max_length=255)
-    bio: str | None = Field(default=None, max_length=2000)
+    phone: str | None = Field(default=None)
+    bio: str | None = Field(default=None)
 
     @field_validator("employee_number", mode="before")
     @classmethod
     def clean_employee_number(cls, v: str) -> str:
+        """Normalize the employee number format."""
         return validate_employee_number(v)
 
     @field_validator("phone", mode="before")
@@ -32,14 +42,20 @@ class TeacherCreateRequest(BaseSchema):
 
 
 class TeacherUpdateRequest(BaseSchema):
-    """Partial update for teacher profile."""
+    """Partial update for teacher profile. All fields are optional."""
 
+    employee_number: str | None = Field(default=None)
     first_name: str | None = Field(default=None, min_length=1, max_length=100)
     last_name: str | None = Field(default=None, min_length=1, max_length=100)
-    phone: str | None = Field(default=None)
     specialization: str | None = Field(default=None, max_length=255)
-    bio: str | None = Field(default=None, max_length=2000)
+    phone: str | None = Field(default=None)
+    bio: str | None = Field(default=None)
     is_active: bool | None = Field(default=None)
+
+    @field_validator("employee_number", mode="before")
+    @classmethod
+    def clean_employee_number(cls, v: str | None) -> str | None:
+        return validate_employee_number(v) if v else None
 
     @field_validator("phone", mode="before")
     @classmethod
@@ -48,13 +64,14 @@ class TeacherUpdateRequest(BaseSchema):
 
 
 class TeacherResponse(UUIDSchema, TimestampSchema):
-    """Teacher profile response."""
+    """Teacher profile response. Never includes password data."""
 
     school_id: UUID
+    user_id: UUID
     employee_number: str
     first_name: str
     last_name: str
-    phone: str | None
     specialization: str | None
+    phone: str | None
     bio: str | None
     is_active: bool
