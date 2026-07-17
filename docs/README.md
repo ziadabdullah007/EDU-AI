@@ -12,3 +12,4 @@ This directory contains extended documentation for the EduCore AI Platform.
 | `development.md` | Local development setup guide |
 
 Refer to the root `README.md` for a quick-start overview.
+Last CI test
