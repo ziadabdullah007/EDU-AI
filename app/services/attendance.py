@@ -3,8 +3,8 @@ EduCore AI Platform — Attendance Service
 
 Business Rules:
 - One attendance record per student per day.
-- Only assigned teacher may record attendance for a class.
-- Future AI: Attendance Risk, Dropout Prediction.
+- Only the assigned teacher (or admin) may record attendance.
+- Bulk mark skips duplicates gracefully.
 """
 
 from datetime import date
@@ -22,11 +22,11 @@ from app.repositories.attendance import AttendanceRepository
 from app.repositories.class_ import ClassRepository
 from app.repositories.enrollment import EnrollmentRepository
 from app.schemas.attendance import (
-    AttendanceResponse,
     AttendanceSummaryResponse,
     BulkMarkAttendanceRequest,
     MarkAttendanceRequest,
     UpdateAttendanceRequest,
+    AttendanceResponse,
 )
 from app.utils.pagination import PaginatedResponse, PaginationParams, build_paginated_response
 
@@ -60,7 +60,13 @@ class AttendanceService:
         payload: MarkAttendanceRequest,
         requesting_user: User,
     ) -> AttendanceResponse:
-        """Mark attendance for a single student on a given date."""
+        """
+        Mark attendance for a single student on a given date.
+
+        Business Rules:
+        - Student must be actively enrolled in the class.
+        - No duplicate record for the same student+date.
+        """
         classroom = await self._class_repo.get_active_by_id(payload.class_id, school_id)
         if classroom is None:
             raise NotFoundException(f"Class '{payload.class_id}' not found.")
@@ -102,7 +108,11 @@ class AttendanceService:
         payload: BulkMarkAttendanceRequest,
         requesting_user: User,
     ) -> list[AttendanceResponse]:
-        """Mark attendance for multiple students in a class at once."""
+        """
+        Mark attendance for multiple students in a class at once.
+
+        Duplicate records are silently skipped to allow partial re-submission.
+        """
         classroom = await self._class_repo.get_active_by_id(payload.class_id, school_id)
         if classroom is None:
             raise NotFoundException(f"Class '{payload.class_id}' not found.")
@@ -150,7 +160,7 @@ class AttendanceService:
 
         classroom = await self._class_repo.get_active_by_id(record.class_id, school_id)
         if classroom is None:
-            raise NotFoundException("Associated class not found.")
+            raise NotFoundException("Associated class not found in this school.")
 
         self._assert_teacher_owns_class(classroom, requesting_user)
 
@@ -165,20 +175,28 @@ class AttendanceService:
         from_date: date | None = None,
         to_date: date | None = None,
     ) -> AttendanceSummaryResponse:
-        """Return attendance summary stats for a student."""
+        """
+        Return attendance summary statistics for a student.
+
+        Attendance rate = present / total * 100 (rounded to 2 dp).
+        """
         summary = await self._attendance_repo.get_student_summary(
             student_id, from_date, to_date
         )
-        total = sum(summary.values())
         present = summary.get(AttendanceStatus.PRESENT.value, 0)
+        absent = summary.get(AttendanceStatus.ABSENT.value, 0)
+        late = summary.get(AttendanceStatus.LATE.value, 0)
+        excused = summary.get(AttendanceStatus.EXCUSED.value, 0)
+        total = present + absent + late + excused
+
         return AttendanceSummaryResponse(
             student_id=student_id,
             total_days=total,
             present=present,
-            absent=summary.get(AttendanceStatus.ABSENT.value, 0),
-            late=summary.get(AttendanceStatus.LATE.value, 0),
-            excused=summary.get(AttendanceStatus.EXCUSED.value, 0),
-            attendance_rate=round((present / total * 100), 2) if total > 0 else 0.0,
+            absent=absent,
+            late=late,
+            excused=excused,
+            attendance_rate=round(present / total * 100, 2) if total > 0 else 0.0,
         )
 
     async def list_student_attendance(

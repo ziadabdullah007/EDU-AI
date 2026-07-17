@@ -2,8 +2,7 @@
 EduCore AI Platform — Grade Service
 
 Business Rules:
-- Grade cannot exceed maximum_score.
-- Negative grades are invalid.
+- score must be >= 0 and <= max_score.
 - Only the assigned teacher may create grades.
 - Deletion is soft delete.
 """
@@ -42,7 +41,7 @@ class GradeService:
         self._class_repo = class_repo
 
     def _assert_teacher_owns_class(self, classroom, requesting_user: User) -> None:
-        """Only the assigned teacher or admin may add grades."""
+        """Only the assigned teacher or admin may add/update grades."""
         if requesting_user.role in (UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN):
             return
         if requesting_user.role == UserRole.TEACHER:
@@ -55,7 +54,14 @@ class GradeService:
         payload: AddGradeRequest,
         requesting_user: User,
     ) -> GradeResponse:
-        """Add a grade record for a student."""
+        """
+        Add a grade record for a student.
+
+        Business Rules:
+        - score must be <= max_score (enforced in schema and here).
+        - Student must be actively enrolled in the class.
+        - Only the assigned teacher (or admin) may submit grades.
+        """
         classroom = await self._class_repo.get_active_by_id(payload.class_id, school_id)
         if classroom is None:
             raise NotFoundException(f"Class '{payload.class_id}' not found.")
@@ -66,11 +72,11 @@ class GradeService:
         if enrollment is None or enrollment.class_id != payload.class_id:
             raise ForbiddenException("Student is not actively enrolled in this class.")
 
-        if payload.score < 0:
-            raise BadRequestException("Grade score cannot be negative.")
-        if payload.score > payload.maximum_score:
+        # Schema-level validation already ensures score <= max_score,
+        # but we enforce it here too as a defence-in-depth measure.
+        if payload.score > payload.max_score:
             raise BadRequestException(
-                f"Score ({payload.score}) exceeds maximum_score ({payload.maximum_score})."
+                f"Score ({payload.score}) cannot exceed max_score ({payload.max_score})."
             )
 
         grade = Grade(
@@ -81,7 +87,7 @@ class GradeService:
             subject=payload.subject,
             assessment_type=payload.assessment_type,
             score=payload.score,
-            maximum_score=payload.maximum_score,
+            max_score=payload.max_score,
             term=payload.term,
             academic_year=payload.academic_year,
             notes=payload.notes,
@@ -92,6 +98,7 @@ class GradeService:
             student_id=str(payload.student_id),
             class_id=str(payload.class_id),
             score=payload.score,
+            max_score=payload.max_score,
         )
         return GradeResponse.model_validate(created)
 
@@ -102,7 +109,7 @@ class GradeService:
         payload: UpdateGradeRequest,
         requesting_user: User,
     ) -> GradeResponse:
-        """Update an existing grade record."""
+        """Update an existing grade record's score or notes."""
         grade = await self._grade_repo.get_active_by_id(grade_id, school_id)
         if grade is None:
             raise NotFoundException(f"Grade '{grade_id}' not found.")
@@ -110,11 +117,11 @@ class GradeService:
         updates = payload.model_dump(exclude_unset=True)
 
         new_score = updates.get("score", grade.score)
-        new_max = updates.get("maximum_score", grade.maximum_score)
-        if new_score < 0:
-            raise BadRequestException("Grade score cannot be negative.")
+        new_max = updates.get("max_score", grade.max_score)
         if new_score > new_max:
-            raise BadRequestException(f"Score ({new_score}) exceeds maximum ({new_max}).")
+            raise BadRequestException(
+                f"Score ({new_score}) cannot exceed max_score ({new_max})."
+            )
 
         updated = await self._grade_repo.update(grade_id, updates)
         logger.info("grade_updated", grade_id=str(grade_id))
@@ -142,10 +149,7 @@ class GradeService:
             school_id=school_id,
             class_id=class_id,
         )
-        return GradeStatisticsResponse(
-            student_id=student_id,
-            **stats,
-        )
+        return GradeStatisticsResponse(student_id=student_id, **stats)
 
     async def list_student_grades(
         self,
@@ -155,7 +159,7 @@ class GradeService:
         class_id: UUID | None = None,
         assessment_type: AssessmentType | None = None,
     ) -> PaginatedResponse[GradeResponse]:
-        """List grades for a student with filters."""
+        """List grades for a student with optional filters."""
         grades, total = await self._grade_repo.list_by_student(
             student_id=student_id,
             school_id=school_id,

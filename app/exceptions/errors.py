@@ -143,18 +143,32 @@ class SchoolAccessDeniedException(ForbiddenException):
 
 
 class NotFoundException(EduCoreException):
-    """Raised when a requested resource does not exist."""
+    """
+    Raised when a requested resource does not exist.
+
+    Accepts either:
+    - A full message string: NotFoundException("Student '123' not found.")
+    - Named resource args: NotFoundException(resource="Student", resource_id="123")
+    """
 
     status_code = 404
     code = "NOT_FOUND"
 
     def __init__(
-        self, resource: str = "Resource", resource_id: str | None = None
+        self,
+        message: str | None = None,
+        resource: str = "Resource",
+        resource_id: str | None = None,
     ) -> None:
-        message = f"{resource} not found"
-        if resource_id:
-            message = f"{resource} with ID '{resource_id}' not found"
+        if message is None:
+            message = f"{resource} not found"
+            if resource_id:
+                message = f"{resource} with ID '{resource_id}' not found"
         super().__init__(message=message)
+
+
+# Alias for clarity — used in auth contexts
+AuthenticationException = UnauthorizedException
 
 
 # =============================================================================
@@ -223,11 +237,9 @@ class ClassCapacityExceededException(ValidationException):
 
     code = "CLASS_CAPACITY_EXCEEDED"
 
-    def __init__(self, capacity: int) -> None:
-        super().__init__(
-            message=f"Class is at full capacity ({capacity} students)",
-            details={"max_capacity": capacity},
-        )
+    def __init__(self, message: str = "Class has reached maximum capacity", capacity: int | None = None) -> None:
+        details = {"max_capacity": capacity} if capacity is not None else {}
+        super().__init__(message=message, details=details)
 
 
 class InvalidGradeException(ValidationException):

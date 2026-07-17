@@ -4,13 +4,12 @@ EduCore AI Platform — Payment Repository
 Handles all database operations for Payment records.
 No business logic. Only queries and persistence.
 
-Business Rule: Payments are never deleted. Records are immutable history.
+Business Rule: Payments are NEVER hard-deleted. Records are immutable history.
 """
 
-from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.payment import Payment, PaymentStatus, PaymentType
@@ -25,11 +24,11 @@ class PaymentRepository(BaseRepository[Payment]):
 
     async def get_by_id_scoped(self, payment_id: UUID, school_id: UUID) -> Payment | None:
         """
-        Return a payment scoped to a specific school.
+        Return a payment record scoped to a specific school.
 
         Args:
             payment_id: The payment UUID.
-            school_id: The school UUID for isolation.
+            school_id: The school UUID for data isolation.
 
         Returns:
             The Payment or None.
@@ -45,11 +44,9 @@ class PaymentRepository(BaseRepository[Payment]):
         student_id: UUID,
         status: PaymentStatus | None = None,
         payment_type: PaymentType | None = None,
-        from_date: datetime | None = None,
-        to_date: datetime | None = None,
         offset: int = 0,
         limit: int = 20,
-        sort_by: str = "payment_date",
+        sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> tuple[list[Payment], int]:
         """
@@ -59,8 +56,6 @@ class PaymentRepository(BaseRepository[Payment]):
             student_id: The student's UUID.
             status: Optional payment status filter.
             payment_type: Optional payment type filter.
-            from_date: Optional start date filter.
-            to_date: Optional end date filter.
             offset: Pagination offset.
             limit: Maximum records to return.
             sort_by: Column to sort by.
@@ -75,20 +70,15 @@ class PaymentRepository(BaseRepository[Payment]):
             stmt = stmt.where(Payment.status == status)
         if payment_type is not None:
             stmt = stmt.where(Payment.payment_type == payment_type)
-        if from_date is not None:
-            stmt = stmt.where(Payment.payment_date >= from_date)
-        if to_date is not None:
-            stmt = stmt.where(Payment.payment_date <= to_date)
 
         total = await self.count(stmt)
 
-        order_col = getattr(Payment, sort_by, Payment.payment_date)
+        order_col = getattr(Payment, sort_by, Payment.created_at)
         stmt = stmt.order_by(
             order_col.desc() if sort_order == "desc" else order_col.asc()
         ).offset(offset).limit(limit)
 
-        payments = await self.execute_query(stmt)
-        return payments, total
+        return await self.execute_query(stmt), total
 
     async def list_by_school(
         self,
@@ -96,23 +86,22 @@ class PaymentRepository(BaseRepository[Payment]):
         search: str | None = None,
         status: PaymentStatus | None = None,
         payment_type: PaymentType | None = None,
-        from_date: datetime | None = None,
-        to_date: datetime | None = None,
         offset: int = 0,
         limit: int = 20,
-        sort_by: str = "payment_date",
+        sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> tuple[list[Payment], int]:
         """
-        List all payments across a school with filters.
+        List all payments across a school with optional filters.
+
+        Search is performed on the `notes` field (the only text search target
+        available on the Payment model).
 
         Args:
             school_id: The school UUID for isolation.
-            search: Optional text search on description.
+            search: Optional text search on payment notes.
             status: Optional payment status filter.
             payment_type: Optional payment type filter.
-            from_date: Optional start date filter.
-            to_date: Optional end date filter.
             offset: Pagination offset.
             limit: Maximum records to return.
             sort_by: Column to sort by.
@@ -124,90 +113,86 @@ class PaymentRepository(BaseRepository[Payment]):
         stmt = select(Payment).where(Payment.school_id == school_id)
 
         if search:
-            stmt = stmt.where(Payment.description.ilike(f"%{search}%"))
+            stmt = stmt.where(
+                Payment.notes.ilike(f"%{search}%")  # type: ignore[union-attr]
+            )
         if status is not None:
             stmt = stmt.where(Payment.status == status)
         if payment_type is not None:
             stmt = stmt.where(Payment.payment_type == payment_type)
-        if from_date is not None:
-            stmt = stmt.where(Payment.payment_date >= from_date)
-        if to_date is not None:
-            stmt = stmt.where(Payment.payment_date <= to_date)
 
         total = await self.count(stmt)
 
-        order_col = getattr(Payment, sort_by, Payment.payment_date)
+        order_col = getattr(Payment, sort_by, Payment.created_at)
         stmt = stmt.order_by(
             order_col.desc() if sort_order == "desc" else order_col.asc()
         ).offset(offset).limit(limit)
 
-        payments = await self.execute_query(stmt)
-        return payments, total
+        return await self.execute_query(stmt), total
 
-    async def get_student_balance_summary(
-        self,
-        student_id: UUID,
-    ) -> dict[str, float]:
+    async def get_student_balance_summary(self, student_id: UUID) -> dict[str, float]:
         """
-        Compute the total paid and total pending amounts for a student.
+        Compute the financial balance summary for a student.
+
+        Aggregates total amounts by payment status: COMPLETED and PENDING.
 
         Args:
             student_id: The student's UUID.
 
         Returns:
-            Dict with total_paid and total_pending.
+            Dict containing total_charged, total_paid, total_pending.
         """
-        paid_stmt = select(func.sum(Payment.amount)).where(
+        # Total charged = all non-refunded payments
+        charged_stmt = select(func.coalesce(func.sum(Payment.amount), 0)).where(
+            and_(
+                Payment.student_id == student_id,
+                Payment.status.in_([PaymentStatus.COMPLETED, PaymentStatus.PENDING]),
+            )
+        )
+        paid_stmt = select(func.coalesce(func.sum(Payment.amount), 0)).where(
             and_(
                 Payment.student_id == student_id,
                 Payment.status == PaymentStatus.COMPLETED,
             )
         )
-        pending_stmt = select(func.sum(Payment.amount)).where(
+        pending_stmt = select(func.coalesce(func.sum(Payment.amount), 0)).where(
             and_(
                 Payment.student_id == student_id,
                 Payment.status == PaymentStatus.PENDING,
             )
         )
 
+        charged_result = await self.session.execute(charged_stmt)
         paid_result = await self.session.execute(paid_stmt)
         pending_result = await self.session.execute(pending_stmt)
 
         return {
-            "total_paid": float(paid_result.scalar_one_or_none() or 0),
-            "total_pending": float(pending_result.scalar_one_or_none() or 0),
+            "total_charged": float(charged_result.scalar_one()),
+            "total_paid": float(paid_result.scalar_one()),
+            "total_pending": float(pending_result.scalar_one()),
         }
 
     async def get_school_financial_summary(
-        self,
-        school_id: UUID,
-        from_date: datetime | None = None,
-        to_date: datetime | None = None,
+        self, school_id: UUID
     ) -> dict[str, float | int]:
         """
         Compute aggregate financial stats for a school.
 
+        Groups payments by status and aggregates amounts and counts.
+
         Args:
             school_id: The school UUID.
-            from_date: Optional start date.
-            to_date: Optional end date.
 
         Returns:
             Dict with total_revenue, total_pending, total_transactions.
         """
-        base_stmt = select(
+        stmt = select(
             Payment.status,
-            func.sum(Payment.amount).label("total"),
+            func.coalesce(func.sum(Payment.amount), 0).label("total"),
             func.count(Payment.id).label("count"),
-        ).where(Payment.school_id == school_id)
+        ).where(Payment.school_id == school_id).group_by(Payment.status)
 
-        if from_date is not None:
-            base_stmt = base_stmt.where(Payment.payment_date >= from_date)
-        if to_date is not None:
-            base_stmt = base_stmt.where(Payment.payment_date <= to_date)
-
-        base_stmt = base_stmt.group_by(Payment.status)
-        result = await self.session.execute(base_stmt)
+        result = await self.session.execute(stmt)
         rows = result.all()
 
         summary: dict[str, float | int] = {
@@ -218,8 +203,8 @@ class PaymentRepository(BaseRepository[Payment]):
         for row in rows:
             summary["total_transactions"] = int(summary["total_transactions"]) + int(row.count)
             if row.status == PaymentStatus.COMPLETED:
-                summary["total_revenue"] = float(row.total or 0)
+                summary["total_revenue"] = float(row.total)
             elif row.status == PaymentStatus.PENDING:
-                summary["total_pending"] = float(row.total or 0)
+                summary["total_pending"] = float(row.total)
 
         return summary

@@ -60,7 +60,7 @@ class SchoolService:
             phone=payload.phone,
             email=payload.email,
             website=payload.website,
-            license_number=payload.license_number,
+            logo_url=payload.logo_url,
         )
         created = await self._school_repo.create(school)
 
