@@ -19,8 +19,8 @@ from app.schemas.auth import (
 )
 from app.schemas.base import BaseSchema, TimestampSchema, UUIDSchema
 from app.schemas.class_ import (
-    ClassCreateRequest,
     AssignTeacherRequest,
+    ClassCreateRequest,
     ClassResponse,
     ClassUpdateRequest,
     ClassWithEnrollmentCountResponse,

@@ -68,3 +68,4 @@ class AssignTeacherRequest(BaseSchema):
         default=None,
         description="Teacher UUID to assign. Use null to unassign the current teacher.",
     )
+    
