@@ -20,6 +20,7 @@ from app.schemas.auth import (
 from app.schemas.base import BaseSchema, TimestampSchema, UUIDSchema
 from app.schemas.class_ import (
     ClassCreateRequest,
+    AssignTeacherRequest,
     ClassResponse,
     ClassUpdateRequest,
     ClassWithEnrollmentCountResponse,
@@ -47,6 +48,7 @@ from app.schemas.student import StudentCreateRequest, StudentResponse, StudentUp
 from app.schemas.teacher import TeacherCreateRequest, TeacherResponse, TeacherUpdateRequest
 
 __all__ = [
+    "AssignTeacherRequest",
     "BaseSchema",
     "TimestampSchema",
     "UUIDSchema",

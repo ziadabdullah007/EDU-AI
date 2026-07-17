@@ -60,3 +60,11 @@ class ClassWithEnrollmentCountResponse(ClassResponse):
 
     enrolled_count: int
     available_slots: int
+
+class AssignTeacherRequest(BaseSchema):
+    """Request to assign or unassign a teacher to a class."""
+
+    teacher_id: UUID | None = Field(
+        default=None,
+        description="Teacher UUID to assign. Use null to unassign the current teacher.",
+    )
