@@ -1,0 +1,70 @@
+"""
+EduCore AI Platform — GitHub Actions CI/CD Workflow
+
+Runs lint, type check, and tests on every push and pull request.
+"""
+
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ruff lint
+        run: ruff check app/ tests/
+
+      - name: Mypy type check
+        run: mypy app/ --ignore-missing-imports
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+      JWT_SECRET_KEY: "ci-test-secret-key-32-chars-long!!"
+      JWT_REFRESH_SECRET_KEY: "ci-refresh-secret-key-32-chars!!!"
+      APP_ENV: "development"
+      LOG_LEVEL: "ERROR"
+      CORS_ORIGINS: "http://localhost:3000"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install aiosqlite
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short --cov=app --cov-report=term-missing
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        continue-on-error: true
