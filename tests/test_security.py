@@ -5,7 +5,6 @@ Tests the security module (JWT + bcrypt) in isolation.
 These tests have no database or HTTP dependency.
 """
 
-from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest

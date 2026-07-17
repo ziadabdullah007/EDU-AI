@@ -5,7 +5,7 @@ Defines the shared Base class used by all ORM models.
 Import Base from this module — never create it in individual model files.
 """
 
-from sqlalchemy.orm import DeclarativeBase, MappedColumn
+from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):

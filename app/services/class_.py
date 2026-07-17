@@ -13,7 +13,6 @@ from app.core.logging import get_logger
 from app.exceptions.errors import (
     BadRequestException,
     ClassCapacityExceededException,
-    ConflictException,
     ForbiddenException,
     NotFoundException,
 )

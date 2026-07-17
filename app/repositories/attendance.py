@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.attendance import Attendance, AttendanceStatus
+from app.models.attendance import Attendance
 from app.repositories.base import BaseRepository
 
 

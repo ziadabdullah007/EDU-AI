@@ -8,7 +8,7 @@ Aligned to the Student ORM model columns exactly.
 from datetime import date
 from uuid import UUID
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import Field, field_validator
 
 from app.models.student import Gender
 from app.schemas.base import BaseSchema, TimestampSchema, UUIDSchema

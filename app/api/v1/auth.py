@@ -13,12 +13,10 @@ from app.dependencies import (
 )
 from app.models.user import User
 from app.schemas.auth import (
-    AccessTokenResponse,
     ChangePasswordRequest,
     LoginRequest,
     RefreshTokenRequest,
     RegisterRequest,
-    TokenResponse,
     UserResponse,
 )
 from app.services.auth import AuthService

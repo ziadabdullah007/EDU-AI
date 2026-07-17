@@ -10,7 +10,6 @@ from pydantic import EmailStr, Field, field_validator
 from app.models.user import UserRole
 from app.schemas.base import BaseSchema, TimestampSchema, UUIDSchema
 
-
 # =============================================================================
 # Request Schemas
 # =============================================================================

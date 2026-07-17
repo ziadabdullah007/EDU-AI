@@ -10,9 +10,9 @@ Architecture:
 This file is the single composition root of the application.
 """
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime, UTC
-from typing import AsyncGenerator
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

@@ -12,7 +12,6 @@ from uuid import UUID
 
 from app.core.logging import get_logger
 from app.exceptions.errors import (
-    BadRequestException,
     ClassCapacityExceededException,
     ConflictException,
     NotFoundException,
@@ -23,8 +22,8 @@ from app.repositories.class_ import ClassRepository
 from app.repositories.enrollment import EnrollmentRepository
 from app.repositories.student import StudentRepository
 from app.schemas.enrollment import (
-    EnrollStudentRequest,
     EnrollmentResponse,
+    EnrollStudentRequest,
     TransferStudentRequest,
 )
 from app.utils.pagination import PaginatedResponse, PaginationParams, build_paginated_response

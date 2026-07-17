@@ -6,14 +6,10 @@ business entity models inherit. This mixin keeps models DRY and ensures
 every table in the platform has a consistent audit column structure.
 """
 
-import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
-
-from app.database.base import Base
 
 
 class TimestampMixin:

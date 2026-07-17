@@ -4,7 +4,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.dependencies import get_current_user, get_school_service, require_school_admin, require_super_admin
+from app.dependencies import (
+    get_school_service,
+    require_school_admin,
+    require_super_admin,
+)
 from app.models.user import User
 from app.schemas.school import SchoolCreateRequest, SchoolUpdateRequest
 from app.services.school import SchoolService

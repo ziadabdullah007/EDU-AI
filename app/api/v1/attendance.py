@@ -5,9 +5,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.dependencies import get_attendance_service, require_school_admin, require_teacher
+from app.dependencies import get_attendance_service, require_teacher
 from app.models.user import User
-from app.schemas.attendance import BulkMarkAttendanceRequest, MarkAttendanceRequest, UpdateAttendanceRequest
+from app.schemas.attendance import (
+    BulkMarkAttendanceRequest,
+    MarkAttendanceRequest,
+    UpdateAttendanceRequest,
+)
 from app.services.attendance import AttendanceService
 from app.utils.pagination import PaginationParams
 from app.utils.responses import success_response

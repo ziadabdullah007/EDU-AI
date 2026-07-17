@@ -22,11 +22,11 @@ from app.repositories.attendance import AttendanceRepository
 from app.repositories.class_ import ClassRepository
 from app.repositories.enrollment import EnrollmentRepository
 from app.schemas.attendance import (
+    AttendanceResponse,
     AttendanceSummaryResponse,
     BulkMarkAttendanceRequest,
     MarkAttendanceRequest,
     UpdateAttendanceRequest,
-    AttendanceResponse,
 )
 from app.utils.pagination import PaginatedResponse, PaginationParams, build_paginated_response
 

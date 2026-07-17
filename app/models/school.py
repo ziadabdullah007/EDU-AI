@@ -6,7 +6,6 @@ Each school owns its users, students, teachers, and all related data.
 """
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Boolean, String, Text
 from sqlalchemy.dialects.postgresql import UUID

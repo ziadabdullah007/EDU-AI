@@ -9,7 +9,6 @@ with no side effects — safe to call from any layer.
 import re
 from datetime import date
 
-
 # Egyptian phone number pattern (starts with 01 followed by 9 digits)
 _EGYPTIAN_PHONE_PATTERN = re.compile(r"^01[0125]\d{8}$")
 

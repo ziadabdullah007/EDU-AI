@@ -16,7 +16,6 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.config.settings import get_settings
 from app.database.session import get_db_session
 from app.main import app
 from app.models.user import User, UserRole
@@ -37,8 +36,8 @@ def event_loop():
 async def test_engine():
     """Create a test SQLite engine shared across the test session."""
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-    from app.database.base import Base
     import app.models  # noqa: F401 — register all models
+    from app.database.base import Base
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine

@@ -17,7 +17,7 @@ from app.models.school import School
 from app.models.user import User
 from app.repositories.school import SchoolRepository
 from app.schemas.school import SchoolCreateRequest, SchoolResponse, SchoolUpdateRequest
-from app.utils.pagination import PaginationParams, build_paginated_response, PaginatedResponse
+from app.utils.pagination import PaginatedResponse, PaginationParams, build_paginated_response
 
 logger = get_logger(__name__)
 
