@@ -25,6 +25,7 @@ from app.schemas.class_ import (
     ClassCreateRequest,
     ClassResponse,
     ClassUpdateRequest,
+    ClassWithEnrollmentCountResponse
 )
 from app.utils.pagination import PaginatedResponse, PaginationParams, build_paginated_response
 
@@ -69,7 +70,6 @@ class ClassService:
             academic_year=payload.academic_year,
             capacity=payload.capacity,
             teacher_id=payload.teacher_id,
-            description=payload.description,
         )
         created = await self._class_repo.create(classroom)
         logger.info("class_created", class_id=str(created.id), school_id=str(school_id))
@@ -77,16 +77,21 @@ class ClassService:
 
     async def get_class(
         self, school_id: UUID, class_id: UUID, requesting_user: User
-    ) -> ClassResponse:
+    ) -> ClassWithEnrollmentCountResponse:
         """Return a class record scoped to the school."""
         self._assert_school_access(school_id, requesting_user)
+
         classroom = await self._class_repo.get_active_by_id(class_id, school_id)
         if classroom is None:
             raise NotFoundException(f"Class '{class_id}' not found.")
+
         enrollment_count = await self._class_repo.get_enrollment_count(class_id)
-        response = ClassResponse.model_validate(classroom)
-        response.enrollment_count = enrollment_count
-        return response
+
+        return ClassWithEnrollmentCountResponse(
+        **ClassResponse.model_validate(classroom).model_dump(),
+        enrolled_count=enrollment_count,
+        available_slots=classroom.capacity - enrollment_count,
+    )
 
     async def update_class(
         self,
