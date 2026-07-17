@@ -1,9 +1,3 @@
-"""
-EduCore AI Platform — GitHub Actions CI/CD Workflow
-
-Runs lint, type check, and tests on every push and pull request.
-"""
-
 name: CI
 
 on:
